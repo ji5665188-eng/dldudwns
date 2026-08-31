@@ -3,12 +3,13 @@ import statsapi
 from pybaseball import batting_stats
 import pandas as pd
 
+# Page Configuration
 st.set_page_config(page_title="MLB 선수 성적 검색기", page_icon="⚾", layout="centered")
 
 st.title("⚾ MLB 선수 성적 검색기")
-st.write("선수의 이름을 영문으로 입력하고 시즌을 선택하세요. (예: Ohtani, Judge, Trout)")
+st.write("선수의 이름을 영문으로 입력하고 검색할 시즌을 선택하세요. (예: Ohtani, Judge, Trout)")
 
-# 입력 폼
+# 입력 폼 설정
 col_input1, col_input2 = st.columns([3, 1])
 with col_input1:
     player_name = st.text_input("선수 이름 (영문):", value="Shohei Ohtani")
@@ -17,14 +18,14 @@ with col_input2:
 
 search_button = st.button("성적 조회하기", use_container_width=True)
 
-# 캐싱 처리: FanGraphs 데이터 호출 실패 시 앱 전체 크래시를 방지
+# FanGraphs 데이터 캐싱 함수 (타임아웃 및 스크래핑 오류 방지)
 @st.cache_data(ttl=3600, show_spinner=False)
 def get_fan_graphs_data(target_season):
     try:
-        # qual=1로 설정하여 최소한의 규정타석 데이터만 빠르게 로드
+        # qual=1로 지정하여 규정 타석 선수 위주로 로드 (속도 최적화)
         df = batting_stats(target_season, qual=1)
         return df
-    except Exception as e:
+    except Exception:
         return None
 
 if search_button and player_name.strip():
@@ -41,10 +42,10 @@ if search_button and player_name.strip():
                 full_name = player['fullName']
                 primary_position = player.get('primaryPosition', {}).get('abbreviation', 'N/A')
                 
-                # 선수 이미지 URL
+                # 선수 이미지 URL 생성
                 image_url = f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:silo:current.png/w_400,q_auto:best/v1/people/{player_id}/headshot/silo/current"
 
-                # 2. MLB StatsAPI기반 타격 성적 추출
+                # 2. MLB StatsAPI 기본 성적 추출 (안타, 홈런, 삼진, 볼넷)
                 stats = statsapi.player_stat_data(player_id, type='hitting', group='hitting', season=season)
                 stat_dict = {}
                 if stats.get('stats'):
@@ -55,11 +56,12 @@ if search_button and player_name.strip():
                 strike_outs = stat_dict.get('strikeOuts', 0)
                 base_on_balls = stat_dict.get('baseOnBalls', 0)
 
-                # 3. FanGraphs 기반 wRC+ 추출 (예외 안전 처리)
+                # 3. FanGraphs 기반 wRC+ 추출
                 wrc_plus = "N/A"
                 fg_df = get_fan_graphs_data(season)
                 
                 if fg_df is not None and not fg_df.empty:
+                    # 이름 전체 매칭 우선 시도 후 부분 매칭
                     matched = fg_df[fg_df['Name'].str.lower() == full_name.lower()]
                     if matched.empty:
                         matched = fg_df[fg_df['Name'].str.contains(player_name, case=False, na=False)]
@@ -69,7 +71,7 @@ if search_button and player_name.strip():
                         if pd.notna(raw_wrc):
                             wrc_plus = round(float(raw_wrc), 1)
 
-                # 4. 결과 출력
+                # 4. 결과 출력 레이아웃
                 st.divider()
                 col_img, col_info = st.columns([1, 2])
                 with col_img:
@@ -93,5 +95,4 @@ if search_button and player_name.strip():
                     st.metric(label="wRC+", value=str(wrc_plus))
 
         except Exception as err:
-            st.error("데이터를 가져오는 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.")
-            st.caption(f"상세 에러: {err}")
+            st.error("데이터를 처리
