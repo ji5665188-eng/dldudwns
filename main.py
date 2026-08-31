@@ -18,11 +18,10 @@ with col_input2:
 
 search_button = st.button("성적 조회하기", use_container_width=True)
 
-# FanGraphs 데이터 캐싱 함수 (타임아웃 및 스크래핑 오류 방지)
+# FanGraphs 데이터 캐싱 함수
 @st.cache_data(ttl=3600, show_spinner=False)
 def get_fan_graphs_data(target_season):
     try:
-        # qual=1로 지정하여 규정 타석 선수 위주로 로드 (속도 최적화)
         df = batting_stats(target_season, qual=1)
         return df
     except Exception:
@@ -61,7 +60,6 @@ if search_button and player_name.strip():
                 fg_df = get_fan_graphs_data(season)
                 
                 if fg_df is not None and not fg_df.empty:
-                    # 이름 전체 매칭 우선 시도 후 부분 매칭
                     matched = fg_df[fg_df['Name'].str.lower() == full_name.lower()]
                     if matched.empty:
                         matched = fg_df[fg_df['Name'].str.contains(player_name, case=False, na=False)]
@@ -71,7 +69,7 @@ if search_button and player_name.strip():
                         if pd.notna(raw_wrc):
                             wrc_plus = round(float(raw_wrc), 1)
 
-                # 4. 결과 출력 레이아웃
+                # 4. 결과 출력
                 st.divider()
                 col_img, col_info = st.columns([1, 2])
                 with col_img:
@@ -95,4 +93,5 @@ if search_button and player_name.strip():
                     st.metric(label="wRC+", value=str(wrc_plus))
 
         except Exception as err:
-            st.error("데이터를 처리
+            st.error("데이터를 처리하는 중 오류가 발생했습니다.")
+            st.caption(f"상세 에러 원인: {err}")
